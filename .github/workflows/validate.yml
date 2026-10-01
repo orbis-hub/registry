@@ -1,0 +1,31 @@
+name: validate
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: check index.json
+        run: |
+          node - <<'JS'
+          const idx = require('./index.json');
+          const fail = (m) => { console.error('✗ ' + m); process.exitCode = 1; };
+          if (!Array.isArray(idx.modules)) fail('modules must be an array');
+          const ids = new Set();
+          for (const m of idx.modules) {
+            if (!/^[a-z0-9][a-z0-9-]*$/.test(m.id || '')) fail(`bad id ${m.id}`);
+            if (ids.has(m.id)) fail(`duplicate id ${m.id}`); ids.add(m.id);
+            for (const k of ['name','description','repo','latest']) if (!m[k]) fail(`${m.id}: missing ${k}`);
+            if (!/^\d+\.\d+\.\d+/.test(m.latest || '')) fail(`${m.id}: latest must be semver`);
+            const repo = (m.repo || '').replace(/^github:/, '').replace(/^https:\/\/github\.com\//, '');
+            const url = m.tarball ? m.tarball.replace(/\{version\}/g, m.latest) : `https://github.com/${repo}/releases/download/v${m.latest}/module.tgz`;
+            fetch(url, { method: 'HEAD', redirect: 'follow' }).then(r => {
+              if (!r.ok) fail(`${m.id}: tarball ${url} → HTTP ${r.status}`); else console.log('✓ ' + m.id);
+            }).catch(e => fail(`${m.id}: ${e.message}`));
+          }
+          JS
