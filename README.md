@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/orbis-hub/orbis/main/brand/logo-dark.svg" alt="" width="64"></p>
+
 # orbis registry
 
 `index.json` is what every orbis hub's **module store** reads (default registry url: `https://raw.githubusercontent.com/orbis-hub/registry/main/index.json`). hubs can add more registries under settings, so anyone can run their own.
