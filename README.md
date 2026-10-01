@@ -25,6 +25,7 @@
 - `id` must equal the `id` in your `module.json`.
 - `latest` must be a published release tag `v<latest>` with a `module.tgz` asset. the hub downloads `https://github.com/<repo>/releases/download/v<latest>/module.tgz`; set `tarball` (with a `{version}` placeholder) if your asset lives elsewhere.
 - `icon` is a [pixelarticons](https://pixelarticons.com) name.
+- `deps` / `softDeps` (optional arrays of module ids) mirror your manifest so the store shows *needs …* / *works with …* before installing. hard deps are installed along automatically if they are in a registry.
 
 the `validate` workflow checks the json shape and that the tarball url answers on every pull request.
 
