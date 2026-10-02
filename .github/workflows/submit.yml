@@ -1,0 +1,94 @@
+name: submission
+
+# issue with label `module-submission` → parse the entry, check the tarball, open a pull request against index.json.
+# the issue gets a comment either way. maintainers only merge; the json work is done here.
+on:
+  issues:
+    types: [opened, edited, labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  submit:
+    if: contains(github.event.issue.labels.*.name, 'module-submission')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: parse + validate + apply
+        id: apply
+        env:
+          BODY: ${{ github.event.issue.body }}
+          ISSUE: ${{ github.event.issue.number }}
+          AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          node - <<'JS'
+          const fs = require("fs");
+          const out = (k, v) => fs.appendFileSync(process.env.GITHUB_OUTPUT, `${k}<<EOF\n${v}\nEOF\n`);
+          const fail = (msg) => { out("ok", "false"); out("message", msg); console.error(msg); process.exit(0); };
+          const body = process.env.BODY || "";
+          // issue forms render a textarea with render:json as a ```json fenced block under the label heading
+          const m = body.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (!m) return fail("could not find a json block in the issue. paste the entry between ```json fences.");
+          let entry;
+          try { entry = JSON.parse(m[1]); } catch (e) { return fail("the entry is not valid json: " + e.message); }
+          const errs = [];
+          if (!/^[a-z0-9][a-z0-9-]*$/.test(entry.id || "")) errs.push("id: lowercase letters, digits and dashes");
+          for (const k of ["name", "description", "repo", "latest"]) if (!entry[k]) errs.push(`missing ${k}`);
+          if (!/^\d+\.\d+\.\d+/.test(entry.latest || "")) errs.push("latest must be semver");
+          const repo = String(entry.repo || "").replace(/^github:/, "").replace(/^https:\/\/github\.com\//, "");
+          if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) errs.push("repo must be owner/name");
+          entry.repo = "github:" + repo;
+          for (const k of ["tags", "deps", "softDeps"]) if (entry[k] !== undefined && !Array.isArray(entry[k])) errs.push(`${k} must be an array`);
+          const allowed = ["id", "name", "description", "repo", "latest", "tags", "author", "icon", "tarball", "deps", "softDeps", "homepage"];
+          for (const k of Object.keys(entry)) if (!allowed.includes(k)) errs.push(`unknown field ${k}`);
+          if (errs.length) return fail("the entry has problems:\n- " + errs.join("\n- "));
+          const url = entry.tarball ? entry.tarball.replace(/\{version\}/g, entry.latest) : `https://github.com/${repo}/releases/download/v${entry.latest}/module.tgz`;
+          fetch(url, { method: "HEAD", redirect: "follow" }).then(async (r) => {
+            if (!r.ok) return fail(`tarball check failed: ${url} → HTTP ${r.status}. publish the release first, then edit this issue (or comment) to retry.`);
+            const idx = JSON.parse(fs.readFileSync("index.json", "utf8"));
+            const i = idx.modules.findIndex((x) => x.id === entry.id);
+            const existing = i >= 0 ? idx.modules[i] : null;
+            if (existing && existing.repo !== entry.repo) return fail(`"${entry.id}" is already registered from ${existing.repo}. a different repo cannot take over an id; pick another id or ask a maintainer.`);
+            const clean = {};
+            for (const k of allowed) if (entry[k] !== undefined) clean[k] = entry[k];
+            if (i >= 0) idx.modules[i] = clean; else idx.modules.push(clean);
+            fs.writeFileSync("index.json", JSON.stringify(idx, null, 2) + "\n");
+            out("ok", "true");
+            out("id", entry.id);
+            out("version", entry.latest);
+            out("kind", existing ? "update" : "add");
+            out("message", `${existing ? "update" : "add"} **${entry.id}** ${entry.latest} – tarball ${url} answers. pull request follows.`);
+          }).catch((e) => fail("tarball check failed: " + e.message));
+          JS
+      - name: pull request
+        if: steps.apply.outputs.ok == 'true'
+        id: pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: submission/${{ steps.apply.outputs.id }}
+          title: "${{ steps.apply.outputs.kind }}: ${{ steps.apply.outputs.id }} ${{ steps.apply.outputs.version }}"
+          commit-message: "${{ steps.apply.outputs.kind }}: ${{ steps.apply.outputs.id }} ${{ steps.apply.outputs.version }}"
+          body: |
+            from #${{ github.event.issue.number }} by @${{ github.event.issue.user.login }}.
+
+            closes #${{ github.event.issue.number }}
+          labels: module-submission
+          delete-branch: true
+      - name: comment
+        uses: actions/github-script@v7
+        env:
+          OK: ${{ steps.apply.outputs.ok }}
+          MESSAGE: ${{ steps.apply.outputs.message }}
+          PR: ${{ steps.pr.outputs.pull-request-url }}
+        with:
+          script: |
+            const ok = process.env.OK === "true";
+            const body = ok
+              ? `${process.env.MESSAGE}\n\n→ ${process.env.PR || "pull request is being created"}\n\na maintainer merges it, then the store picks it up within the hour.`
+              : `✗ ${process.env.MESSAGE}\n\nedit the issue and the check runs again.`;
+            await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });

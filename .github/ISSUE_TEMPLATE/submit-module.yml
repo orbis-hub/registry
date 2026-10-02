@@ -1,0 +1,36 @@
+name: submit a module
+description: add your module to the registry (or update its version). a bot checks the tarball and opens the pull request for you.
+title: "add: <id> <version>"
+labels: ["module-submission"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        easiest way: fill the form on **https://orbis-hub.github.io/registry/** – it writes the entry below for you.
+        before you submit: there has to be a release `v<latest>` on your repo with a `module.tgz` asset (the module template does that on `git tag`).
+  - type: textarea
+    id: entry
+    attributes:
+      label: registry entry
+      description: the json object for index.json. same shape as the existing entries.
+      render: json
+      placeholder: |
+        {
+          "id": "my-module",
+          "name": "My Module",
+          "description": "one sentence",
+          "repo": "github:you/orbis-module-my-module",
+          "latest": "0.1.0",
+          "tags": ["productivity"],
+          "author": "you",
+          "icon": "sparkles"
+        }
+    validations:
+      required: true
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: rules
+      options:
+        - label: permissions in module.json are declared truthfully, no telemetry without opt-in, no obfuscated code
+          required: true

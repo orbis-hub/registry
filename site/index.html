@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>orbis registry</title>
+<meta name="description" content="modules for orbis: browse what the store offers, publish your own.">
+<link rel="icon" href="https://raw.githubusercontent.com/orbis-hub/orbis/main/apps/web/public/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4ecf2; --paper: #fffaf9; --paper-2: #f9eef4; --ink: #2b1f2e; --ink-soft: #7a6680; --line: #c9a9bf;
+    --accent: #e2789b; --accent-2: #8b7fd6; --accent-soft: #fbe3ec; --ok: #5aa66e; --bad: #d9534f;
+    --font-pixel: "DotGothic16", monospace; --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17121c; --paper: #1f1826; --paper-2: #291f32; --ink: #f1e9f3; --ink-soft: #a894b0; --line: #5c4a62;
+      --accent: #ff8fb4; --accent-2: #b0a4ff; --accent-soft: #3a2a3f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17121c; --paper: #1f1826; --paper-2: #291f32; --ink: #f1e9f3; --ink-soft: #a894b0; --line: #5c4a62;
+    --accent: #ff8fb4; --accent-2: #b0a4ff; --accent-soft: #3a2a3f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font-mono); padding: 24px 16px 60px; }
+  body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1;
+    background: radial-gradient(600px 300px at 20% 0%, rgba(226,120,155,.22), transparent 60%), radial-gradient(500px 300px at 90% 20%, rgba(139,127,214,.20), transparent 60%); }
+  a { color: var(--accent-2); }
+  .wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header img { width: 44px; height: 44px; image-rendering: pixelated; }
+  h1 { font: 28px var(--font-pixel); margin: 0; letter-spacing: .5px; }
+  .sub { color: var(--ink-soft); font-size: 12px; }
+  .win { background: var(--paper); border: 1.5px solid var(--line); box-shadow: 4px 4px 0 var(--line); }
+  .win-title { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1.5px solid var(--line); background: var(--paper-2); font: 13px var(--font-pixel); }
+  .dots { display: inline-flex; gap: 4px; } .dots i { width: 8px; height: 8px; border: 1.5px solid var(--line); background: var(--accent-soft); display: inline-block; }
+  .dots i:nth-child(2) { background: var(--accent); } .dots i:nth-child(3) { background: var(--accent-2); }
+  .win-body { padding: 12px; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input, textarea, select { font: inherit; color: var(--ink); background: var(--paper); border: 1.5px solid var(--line); padding: 6px 8px; width: 100%; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 2px 2px 0 var(--accent-soft); }
+  .chip { display: inline-flex; align-items: center; gap: 4px; border: 1.5px solid var(--line); padding: 1px 7px; font-size: 11px; background: var(--paper-2); cursor: pointer; user-select: none; }
+  .chip.on { border-color: var(--accent); color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .card { display: flex; flex-direction: column; gap: 8px; }
+  .card .head { display: flex; gap: 10px; align-items: center; }
+  .card .icon { width: 36px; height: 36px; display: grid; place-items: center; border: 1.5px solid var(--line); background: var(--paper-2); flex: none; }
+  .card .icon img { width: 22px; height: 22px; filter: var(--icon-filter, none); }
+  .card h3 { margin: 0; font: 16px var(--font-pixel); }
+  .card .desc { font-size: 12.5px; color: var(--ink); min-height: 38px; }
+  .meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: 11px; color: var(--ink-soft); align-items: center; }
+  .btn { font: 12px var(--font-mono); border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); padding: 5px 10px; cursor: pointer; box-shadow: 2px 2px 0 var(--line); text-decoration: none; display: inline-flex; gap: 6px; align-items: center; }
+  .btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--line); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 2px 2px 0 var(--line); }
+  .btn.ghost { box-shadow: none; }
+  code, pre { font-family: var(--font-mono); font-size: 12px; }
+  pre { background: var(--paper-2); border: 1.5px dashed var(--line); padding: 10px; overflow: auto; margin: 0; }
+  .form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form .full { grid-column: 1 / -1; }
+  label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--ink-soft); }
+  .hint { font-size: 11px; color: var(--ink-soft); }
+  .err { color: var(--bad); font-size: 11px; }
+  .okay { color: var(--ok); font-size: 11px; }
+  .steps { margin: 0; padding-left: 18px; font-size: 13px; }
+  .steps li { margin-bottom: 6px; }
+  .pixel { font-family: var(--font-pixel); }
+  footer { color: var(--ink-soft); font-size: 11px; text-align: center; }
+  @media (max-width: 640px) { .form { grid-template-columns: 1fr; } body { padding: 16px 16px 40px; } }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .card .icon img { filter: invert(1) hue-rotate(180deg); } }
+  :root[data-theme="dark"] .card .icon img { filter: invert(1) hue-rotate(180deg); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="https://raw.githubusercontent.com/orbis-hub/orbis/main/brand/logo.svg" alt="">
+    <div>
+      <h1>orbis registry</h1>
+      <div class="sub">everything a hub's module store can install. <a href="https://github.com/orbis-hub/orbis">orbis</a> · <a href="https://github.com/orbis-hub/orbis/wiki/Module-Developer-Guide">build a module</a> · <a href="https://github.com/orbis-hub/registry">this repo</a></div>
+    </div>
+    <span style="margin-left:auto" class="toolbar">
+      <button class="btn ghost" id="theme" title="light / dark">◐</button>
+      <a class="btn" href="#publish">publish a module ↓</a>
+    </span>
+  </header>
+
+  <section class="win">
+    <div class="win-title"><span class="dots"><i></i><i></i><i></i></span><span>modules <span id="count" class="sub"></span></span>
+      <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <input id="q" placeholder="search…" style="width:200px;padding:3px 8px;font-size:12px">
+      </span>
+    </div>
+    <div class="win-body" style="display:flex;flex-direction:column;gap:12px">
+      <div class="toolbar" id="tags"></div>
+      <div class="grid" id="grid"><div class="sub">loading index.json…</div></div>
+      <div class="hint">registry url for your hub (it is the default, so you only need it for a second hub or your own fork): <code id="regurl"></code> <button class="btn ghost" id="copyurl" style="padding:1px 6px">copy</button></div>
+    </div>
+  </section>
+
+  <section class="win" id="publish">
+    <div class="win-title"><span class="dots"><i></i><i></i><i></i></span><span>publish a module</span></div>
+    <div class="win-body" style="display:flex;flex-direction:column;gap:14px">
+      <ol class="steps">
+        <li>start from the <a href="https://github.com/orbis-hub/module-template">module template</a>, build your thing, push it to github.</li>
+        <li>tag a release <code>v0.1.0</code>. the template's workflow attaches <code>module.tgz</code> to it.</li>
+        <li>fill in the form. it writes the registry entry for you and opens a prefilled submission on github. a bot checks the tarball and turns it into a pull request; once merged, every hub sees your module in the store within the hour.</li>
+      </ol>
+      <div class="form">
+        <label>id <span class="hint">same as in module.json</span><input id="f-id" placeholder="my-module" pattern="^[a-z0-9][a-z0-9-]*$"></label>
+        <label>name<input id="f-name" placeholder="My Module"></label>
+        <label class="full">description <span class="hint">one sentence, shown in the store</span><input id="f-desc" placeholder="what it does, for whom"></label>
+        <label>repo <span class="hint">owner/name on github</span><input id="f-repo" placeholder="you/orbis-module-my-module"></label>
+        <label>latest version <span class="hint">release tag v&lt;version&gt; with module.tgz</span><input id="f-latest" placeholder="0.1.0"></label>
+        <label>author<input id="f-author" placeholder="you"></label>
+        <label>icon <span class="hint"><a href="https://pixelarticons.com" target="_blank" rel="noreferrer">pixelarticons</a> name</span><input id="f-icon" placeholder="sparkles"></label>
+        <label>tags <span class="hint">comma separated</span><input id="f-tags" placeholder="productivity, smart home"></label>
+        <label>tarball <span class="hint">optional, only if not on a github release; use {version}</span><input id="f-tarball" placeholder="https://…/{version}/module.tgz"></label>
+        <label>deps <span class="hint">hard dependencies, module ids</span><input id="f-deps" placeholder="home-assistant"></label>
+        <label>softDeps <span class="hint">optional dependencies</span><input id="f-soft" placeholder="shopping"></label>
+      </div>
+      <div id="f-check" class="hint"></div>
+      <pre id="f-json">{ }</pre>
+      <div class="toolbar">
+        <a class="btn primary" id="f-submit" href="#" target="_blank" rel="noreferrer">open the submission on github →</a>
+        <button class="btn" id="f-copy">copy json</button>
+        <a class="btn ghost" href="https://github.com/orbis-hub/registry/edit/main/index.json" target="_blank" rel="noreferrer">or edit index.json by hand</a>
+      </div>
+      <div class="hint">rules: modules run inside people's hubs. store modules are sandboxed in a worker with the permissions from their manifest, but still: declare <code>permissions</code> truthfully, no telemetry without opt-in, no obfuscated code.</div>
+    </div>
+  </section>
+
+  <footer>orbis · <a href="https://github.com/orbis-hub">github.com/orbis-hub</a> · made by <a href="https://vensin.dev">vensin</a></footer>
+</div>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const INDEX = new URL("index.json", location.href).href;
+  const RAW = "https://raw.githubusercontent.com/orbis-hub/registry/main/index.json";
+  $("#regurl").textContent = RAW;
+  $("#copyurl").onclick = () => navigator.clipboard?.writeText(RAW);
+
+  // theme toggle, remembered per browser
+  const root = document.documentElement;
+  try { const t = localStorage.getItem("theme"); if (t) root.dataset.theme = t; } catch {}
+  $("#theme").onclick = () => {
+    const dark = root.dataset.theme === "dark" || (!root.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("theme", root.dataset.theme); } catch {}
+  };
+
+  const icon = (n) => `https://cdn.jsdelivr.net/npm/pixelarticons@2.4.1/svg/${encodeURIComponent(n || "sparkles")}.svg`;
+  const repoUrl = (m) => "https://github.com/" + String(m.repo || "").replace(/^github:/, "").replace(/^https:\/\/github\.com\//, "");
+  const tarball = (m) => (m.tarball ? m.tarball.replace(/\{version\}/g, m.latest) : `${repoUrl(m)}/releases/download/v${m.latest}/module.tgz`);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  let all = [];
+  let activeTag = null;
+  const render = () => {
+    const q = $("#q").value.trim().toLowerCase();
+    const list = all.filter((m) => (!activeTag || (m.tags || []).includes(activeTag)) && (!q || [m.id, m.name, m.description, m.author, ...(m.tags || [])].join(" ").toLowerCase().includes(q)));
+    $("#count").textContent = `(${list.length}${list.length !== all.length ? ` of ${all.length}` : ""})`;
+    $("#grid").innerHTML = list.length ? list.map((m) => `
+      <article class="win card"><div class="win-body card">
+        <div class="head"><span class="icon"><img src="${icon(m.icon)}" alt="" onerror="this.src='${icon("sparkles")}'"></span>
+          <div><h3>${esc(m.name)}</h3><div class="meta"><code>${esc(m.id)}</code> · v${esc(m.latest)} · ${esc(m.author || "")}</div></div></div>
+        <div class="desc">${esc(m.description)}</div>
+        <div class="meta">${(m.tags || []).map((t) => `<span class="chip" data-tag="${esc(t)}">${esc(t)}</span>`).join("")}
+          ${(m.deps || []).length ? `<span>needs ${m.deps.map(esc).join(", ")}</span>` : ""}${(m.softDeps || []).length ? `<span>works with ${m.softDeps.map(esc).join(", ")}</span>` : ""}</div>
+        <div class="toolbar" style="margin-top:auto"><a class="btn" href="${repoUrl(m)}" target="_blank" rel="noreferrer">repo</a><a class="btn ghost" href="${esc(tarball(m))}">module.tgz</a>
+          <button class="btn ghost" data-copy="${esc(m.id)}" title="copy the id; in your hub: modules → store → search">copy id</button></div>
+      </div></article>`).join("") : `<div class="sub">nothing matches.</div>`;
+  };
+  const renderTags = () => {
+    const counts = new Map();
+    for (const m of all) for (const t of m.tags || []) counts.set(t, (counts.get(t) || 0) + 1);
+    $("#tags").innerHTML = `<span class="chip ${activeTag ? "" : "on"}" data-tag="">all</span>` + [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([t, n]) => `<span class="chip ${activeTag === t ? "on" : ""}" data-tag="${esc(t)}">${esc(t)} <span class="sub">${n}</span></span>`).join("");
+  };
+  document.addEventListener("click", (e) => {
+    const tag = e.target.closest("[data-tag]");
+    if (tag) { activeTag = tag.dataset.tag || null; renderTags(); render(); }
+    const cp = e.target.closest("[data-copy]");
+    if (cp) navigator.clipboard?.writeText(cp.dataset.copy);
+  });
+  $("#q").addEventListener("input", render);
+  fetch(INDEX).then((r) => r.json()).then((idx) => { all = idx.modules || []; renderTags(); render(); }).catch((err) => { $("#grid").innerHTML = `<div class="err">could not load index.json: ${esc(err.message)}</div>`; });
+
+  // ---- publish form ----
+  const f = (id) => $("#f-" + id);
+  const list = (v) => v.split(",").map((s) => s.trim()).filter(Boolean);
+  const entry = () => {
+    const m = { id: f("id").value.trim(), name: f("name").value.trim(), description: f("desc").value.trim(), repo: f("repo").value.trim().replace(/^https:\/\/github\.com\//, "").replace(/^github:/, ""), latest: f("latest").value.trim().replace(/^v/, ""), tags: list(f("tags").value), author: f("author").value.trim(), icon: f("icon").value.trim() || "sparkles" };
+    if (m.repo) m.repo = "github:" + m.repo;
+    if (f("tarball").value.trim()) m.tarball = f("tarball").value.trim();
+    if (list(f("deps").value).length) m.deps = list(f("deps").value);
+    if (list(f("soft").value).length) m.softDeps = list(f("soft").value);
+    return m;
+  };
+  const check = (m) => {
+    const errs = [];
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(m.id)) errs.push("id: lowercase letters, digits and dashes");
+    if (!m.name) errs.push("name is missing");
+    if (!m.description) errs.push("description is missing");
+    if (!/^github:[\w.-]+\/[\w.-]+$/.test(m.repo || "")) errs.push("repo: owner/name");
+    if (!/^\d+\.\d+\.\d+/.test(m.latest)) errs.push("latest: semver like 0.1.0");
+    if (all.some((x) => x.id === m.id)) errs.push(`id "${m.id}" is already in the registry (updates go through the same form, the bot replaces the entry)`);
+    return errs;
+  };
+  const update = () => {
+    const m = entry();
+    const errs = check(m).filter((e) => !e.startsWith("id \"")); // "already exists" is a hint, not an error
+    const dup = all.some((x) => x.id === m.id);
+    f("json").textContent = JSON.stringify(m, null, 2);
+    f("check").innerHTML = errs.length ? `<span class="err">${errs.map(esc).join(" · ")}</span>` : `<span class="okay">looks fine.</span>${dup ? ` <span class="hint">"${esc(m.id)}" exists already, so this will be an update to ${esc(m.latest)}.</span>` : ""} <span class="hint">the bot will check ${esc(tarball(m))}</span>`;
+    const u = new URL("https://github.com/orbis-hub/registry/issues/new");
+    u.searchParams.set("template", "submit-module.yml");
+    u.searchParams.set("title", `${dup ? "update" : "add"}: ${m.id} ${m.latest}`);
+    u.searchParams.set("labels", "module-submission");
+    u.searchParams.set("entry", JSON.stringify(m, null, 2));
+    f("submit").href = u.toString();
+    f("submit").classList.toggle("primary", !errs.length);
+  };
+  for (const el of document.querySelectorAll(".form input")) el.addEventListener("input", update);
+  f("copy").onclick = () => navigator.clipboard?.writeText(f("json").textContent);
+  update();
+})();
+</script>
+</body>
+</html>
